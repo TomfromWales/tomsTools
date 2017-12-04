@@ -1,0 +1,76 @@
+###############################################################################
+#------------------------------------------------------------------------------
+# Script : Plot_Obs_v_Fitted.R
+#------------------------------------------------------------------------------
+# Description : Takes a data frame, and creates a plot of the observed vs 
+#               fitted values of a specified metric, for a specified feature.
+#               A format can be applied to the feature if desired.
+#------------------------------------------------------------------------------
+# Change History :
+#   [2015/12/27 [Tom Snowdon] [Created]     
+#   [2016/06/03 [Tom Snowdon] [Replaced tapplys with dplyr summary]                                 
+#------------------------------------------------------------------------------
+###############################################################################
+
+Plot_Obs_v_Fitted<- function(df,Var,weight,unitpred,response,LUTable=NA,LUType="Direct",LUOrdered="N"){
+  #===========================================================================#
+  # Apply the specified lookup on Var so we can summarise by the FMTd field
+  #===========================================================================#   
+    if (identical(LUTable,NA)){
+      df[,"Var_FMTd"] <- df[,Var]
+    }else {
+      df[,"Var_FMTd"] <- Create_FMTd_Field(df[,Var],LUTable,type=LUType,Ordered=LUOrdered)
+    }
+
+  #===========================================================================#
+  # Calculate key stats by each level of Var_FMTd
+  #===========================================================================#  
+    df[,"weight"] <- df[,weight]
+    df[,"unitpred"] <- df[,unitpred]
+    df[,"response"] <- df[,response]
+
+    #--Preparatory calculations--#
+      df[,"Weighted_Pred"] <- df[,unitpred]*df[,weight]
+      TotalWeight <- sum(df[,weight])
+
+    #--Summaries--#
+      df_summarised <- df %>%
+        group_by(Var_FMTd) %>%
+          summarise(
+            weight_sum = sum(weight),
+            actuals_mean = sum(response)/weight_sum,
+            preds_mean = sum(Weighted_Pred)/weight_sum,
+            weight_perc = sum(weight)/TotalWeight
+          )
+      df_summarised <- as.data.frame(df_summarised) ###Convert to dataframe to work with other functions below###   
+
+  #===========================================================================#
+  # Plot Obs vs Fitted
+  #===========================================================================#
+    #-------------------------------------------------------------------------# 
+    # Cals to help with axes on the plot
+    #-------------------------------------------------------------------------#    
+      MinPreds <- min(subset(df_summarised[,"preds_mean"],!is.na(df_summarised[,"preds_mean"])))
+      MinActuals <- min(subset(df_summarised[,"actuals_mean"],!is.na(df_summarised[,"actuals_mean"])))
+      MinWeight <- min(subset(df_summarised[,"weight_perc"],!is.na(df_summarised[,"weight_perc"])))
+      
+      MaxPreds <- max(subset(df_summarised[,"preds_mean"],!is.na(df_summarised[,"preds_mean"])))
+      MaxActuals <- max(subset(df_summarised[,"actuals_mean"],!is.na(df_summarised[,"actuals_mean"])))
+      MaxWeight <- max(subset(df_summarised[,"weight_perc"],!is.na(df_summarised[,"weight_perc"])))
+     
+      MeanPreds <- mean(subset(df_summarised[,"preds_mean"],!is.na(df_summarised[,"preds_mean"])))
+      MeanActuals <- mean(subset(df_summarised[,"actuals_mean"],!is.na(df_summarised[,"actuals_mean"])))
+      MeanWeight <- mean(subset(df_summarised[,"weight_perc"],!is.na(df_summarised[,"weight_perc"])))
+   
+    #-------------------------------------------------------------------------# 
+    # Plot
+    #-------------------------------------------------------------------------#  
+      barplot(df_summarised[,"weight_perc"],names.arg=df_summarised[,"Var_FMTd"],ylim=c(0,MaxWeight*3),col="light yellow",main=paste("Obs vs Fitted - ",Var,sep=""),xlab=Var,ylab="Exposure")
+      par(new=TRUE)
+      plot(df_summarised[,"preds_mean"],type="l",axes=FALSE,xlab=Var,ylab="",pch="18",col="dark green",ylim=c(min(MinActuals,MinPreds)-0.2*MeanActuals,max(MaxActuals,MaxPreds)+0.2*MeanActuals))
+      axis(side=4)
+      points(df_summarised[,"preds_mean"],col="dark green",pch=18)
+      points(df_summarised[,"actuals_mean"],type="l",col="violet")
+      points(df_summarised[,"actuals_mean"],col="violet",pch=20)
+}
+ 
