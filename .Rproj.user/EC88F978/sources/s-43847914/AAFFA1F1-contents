@@ -1,4 +1,0 @@
-install.packages("sinew")
-library("sinew")
-makeOxygen(Plot_Obs_v_Fitted)
-
