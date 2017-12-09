@@ -3,8 +3,8 @@
 #' For a specified feature, a plot of the observed vs the predicted values is produced.
 #'
 #' @param data name of the data frame to evaluate
-#' @param unit_prediction prediction per unit weight
-#' @param response name of the column containing the weights
+#' @param prediction prediction per unit weight
+#' @param actual name of the column containing the weights
 #' @param weight name of the column containing the weights
 #' @param feature name of the column containing the feature of interest
 #' @return a (ggplot2) plot is returned
@@ -15,17 +15,15 @@
 #'  #EXAMPLE1
 #'  }
 #' }
-#' @rdname Plot_Obs_v_Fitted
+#' @rdname plot_actual_vs_predicted
 #' @export
 #'
-###############################################################################
-#------------------------------------------------------------------------------
+#=============================================================================
 # Change History :
 #   [2017/12/06 [Tom Snowdon] [Created]
-#------------------------------------------------------------------------------
-###############################################################################
+#=============================================================================
 
-plot_observed_vs_predicted <- function(data,unit_prediction,response,weight,feature){
+plot_actual_vs_predicted <- function(data,actual,prediction,weight,feature){
 
   # Error Handling
   #===============================================
@@ -33,23 +31,24 @@ plot_observed_vs_predicted <- function(data,unit_prediction,response,weight,feat
     #------------------------------------
       data <- as.data.frame(data)
 
-  # Calculate key stats by each level of Var_FMTd
+  # Calculate key stats by each level of feature
   #===============================================
-    #---Copy each variable to save complicated dplyr references--# ###Should be removed in future.###
+    #---Copy each featureiable to save complicated dplyr references--# ###Should be removed in future.###
       data[,"weight"] <- data[,weight]
-      data[,"unitpred"] <- data[,unitpred]
-      data[,"response"] <- data[,response]
+      data[,"prediction"] <- data[,prediction]
+      data[,"actual"] <- data[,actual]
+      data[,"feature"] <- data[,feature]
 
     #--Preparatory calculations--#
-      data[,"Weighted_Pred"] <- data[,unitpred]*data[,weight]
+      data[,"Weighted_Pred"] <- data[,prediction]*data[,weight]
       TotalWeight <- sum(data[,weight])
 
     #--Summaries--# ###Is this nececcary, or can we just use sufficient stats when calling ggplot?
       data_summarised <- data %>%
-        group_by_(feature) %>%
+        group_by(feature) %>%
           summarise(
             weight_sum = sum(weight),
-            actuals_mean = sum(response)/weight_sum,
+            actuals_mean = sum(actual)/weight_sum,
             preds_mean = sum(Weighted_Pred)/weight_sum,
             weight_perc = sum(weight)/TotalWeight
           )
@@ -73,14 +72,30 @@ plot_observed_vs_predicted <- function(data,unit_prediction,response,weight,feat
 
     # Plot
     #------------------------------------
-      barplot(data_summarised[,"weight_perc"],names.arg=data_summarised[,"Var_FMTd"],ylim=c(0,MaxWeight*3),col="light yellow",main=paste("Obs vs Fitted - ",Var,sep=""),xlab=Var,ylab="Exposure")
+      barplot(data_summarised[,"weight_perc"],names.arg=data_summarised[,"feature"],ylim=c(0,MaxWeight*3),col="light yellow",main=paste("Obs vs Fitted - ",feature,sep=""),xlab=feature,ylab="Exposure")
       par(new=TRUE)
-      plot(data_summarised[,"preds_mean"],type="l",axes=FALSE,xlab=Var,ylab="",pch="18",col="dark green",ylim=c(min(MinActuals,MinPreds)-0.2*MeanActuals,max(MaxActuals,MaxPreds)+0.2*MeanActuals))
+      plot(data_summarised[,"preds_mean"],type="l",axes=FALSE,xlab=feature,ylab="",pch="18",col="dark green",ylim=c(min(MinActuals,MinPreds)-0.2*MeanActuals,max(MaxActuals,MaxPreds)+0.2*MeanActuals))
       axis(side=4)
       points(data_summarised[,"preds_mean"],col="dark green",pch=18)
       points(data_summarised[,"actuals_mean"],type="l",col="violet")
       points(data_summarised[,"actuals_mean"],col="violet",pch=20)
 }
+
+
+# test <- cbind.data.frame(
+#   Obs = c(0,3,2,2)
+#   ,Pred = c(0.5,1.5,1.8,2.2)
+#   ,Weight = c(0.5,0.5,1,1)
+#   ,Feat = c(1,1,2,3)
+# )
+#
+# plot_actual_vs_predicted(
+#   data = test
+#   ,actual = "Obs"
+#   ,prediction = "Pred"
+#   ,weight = "Weight"
+#   ,feature = "Feat"
+# )
 
 
 
