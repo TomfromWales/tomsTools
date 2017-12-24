@@ -7,7 +7,7 @@
 #' @param actual name of the column containing the weights
 #' @param weight name of the column containing the weights
 #' @param feature name of the column containing the feature of interest
-#' @return a (ggplot2) plot is returned
+#' @return a (plotly) plot is returned
 #' @details Some details here
 #' @examples
 #' \dontrun{
@@ -15,7 +15,7 @@
 #'  #EXAMPLE1
 #'  }
 #' }
-#' @rdname plot_actual_vs_predicted
+#' @rdname plotly_actual_vs_predicted
 #' @export
 #'
 #=============================================================================
@@ -23,7 +23,9 @@
 #   [2017/12/06 [Tom Snowdon] [Created]
 #=============================================================================
 
-plot_actual_vs_predicted <- function(data,actual,prediction,weight,feature){
+plotly_actual_vs_predicted <- function(data,actual,prediction,weight,feature){
+
+  library("plotly")
 
   # Error Handling
   #===============================================
@@ -52,31 +54,11 @@ plot_actual_vs_predicted <- function(data,actual,prediction,weight,feature){
             weight_perc = sum(weight)/TotalWeight
           )
       data_summarised <- as.data.frame(data_summarised) ###Convert to dataframe to work with other functions below###
+      data_summarised$feature <- as.factor(data_summarised$feature)
 
   # Create plot
   #===============================================
-    # ggplot(data = data_summarised, aes(feature))+
-    #   geom_bar(
-    #     aes(weight=weight_perc)
-    #     ,color = "yellow"
-    #     ,fill = "light yellow"
-    #   )+
-    #   theme(
-    #     panel.background = element_rect(fill="white")
-    #     ,plot.background = element_rect(fill="azure")
-    #     ,axis.text = element_text(color="navy")
-    #     ,axis.title = element_text(color = "navy")
-    #   )+
-    #   geom_line(
-    #     aes(y=preds_mean)
-    #   )+
-    #   geom_point(
-    #     aes(y=preds_mean),axis(side = 4)
-    #   )+
-    #
-  # Plot Obs vs Predicted
-  #=======================
-    # Cals to help with axes on the plot
+   # Cals to help with axes on the plot
     #------------------------------------
       MinPreds <- min(subset(data_summarised[,"preds_mean"],!is.na(data_summarised[,"preds_mean"])))
       MinActuals <- min(subset(data_summarised[,"actuals_mean"],!is.na(data_summarised[,"actuals_mean"])))
@@ -90,31 +72,95 @@ plot_actual_vs_predicted <- function(data,actual,prediction,weight,feature){
       MeanActuals <- mean(subset(data_summarised[,"actuals_mean"],!is.na(data_summarised[,"actuals_mean"])))
       MeanWeight <- mean(subset(data_summarised[,"weight_perc"],!is.na(data_summarised[,"weight_perc"])))
 
+      #==Calc tick marks==#
+        y_plot_max = max(MaxPreds,MaxActuals)*1.1
+        y_plot_min = min(MinPreds,MinActuals)*0.8
+        y_tick_space_FUN <- function(range,max_ticks){
+          minimum_tick_space = range/max_ticks
+          magnitude = 10^floor(log10(minimum_tick_space))
+          residual = minimum_tick_space/magnitude
+
+          if (residual>5){
+            y_tick = 10*magnitude
+          }else if(residual > 2){
+            y_tick = 5*magnitude
+          }else if(residual > 1){
+            y_tick = 2*magnitude
+          }else{
+            y_tick = magnitude
+          }
+          return(y_tick)
+        }
+      y_tick_space = y_tick_space_FUN(y_plot_max - y_plot_min,10)
+
     # Plot
     #------------------------------------
-      par(bg="black")
+      p <- plot_ly(
+        data = data_summarised
+        ,x = ~feature #~get(feature)
+        ,y = ~weight_perc
+        ,name = weight
+        ,type = "bar"
+        ,marker = list(color="khaki")
+      )%>%
+        add_trace(
+          x = ~feature
+          ,y = ~actuals_mean
+          ,name = actual
+          ,type = "scatter"
+          ,marker = list(color="magenta")
+          ,mode = "lines+markers"
+          ,line = list(color="magenta")
+          ,yaxis = 'y2'
+        )%>%
+        add_trace(
+          x = ~feature
+          ,y = ~preds_mean
+          ,name = prediction
+          ,type = "scatter"
+          ,marker = list(color="green")
+          ,mode = "lines+markers"
+          ,line = list(color="green")
+          ,yaxis = "y2"
+        )%>%
+        layout(
+          title = paste0("Actual vs Predicted : ",feature)
+          ,legend = list(
+            orientation = "h"
+          )
+          ,xaxis = list(
+            title = feature
+            ,showgrid = TRUE
+          )
+          ,yaxis = list(
+            title = "Weight",
+            showgrid = FALSE
+            ,range = c(0,MaxWeight*3)
+            ,side = "left"
+            ,linecolor = "black"
+            ,fixedrange = TRUE
+          )
+          ,yaxis2 = list(
+            title = "Response",
+            showgrid = TRUE
+            ,range = c(y_plot_min,y_plot_max)
+            ,side = "right"
+            ,overlaying = "y"
+            ,autosize = "T"
+            ,linecolor = "black"
+            ,dtick = y_tick_space
+          )
+          ,bargap = 0.25
+          ,margin = list(t=100,l=50,r=50,b=50)
+          ,plot_bgcolor = "rgb(220,250,250)"
+          ,paper_bgcolor = "rgb(220,250,250)"
+        )
 
-      barplot(
-        data_summarised[,"weight_perc"],names.arg=data_summarised[,"feature"],ylim=c(0,MaxWeight*3),col="light yellow",main=paste("Actual vs Predicted - ",feature,sep=""),xlab=feature,ylab="Exposure"
-        ,col.axis="white",col.lab="white",col.main="white"
-      )
-      axis(side=2,col="grey")
-      par(new=TRUE)
-      plot(
-        data_summarised[,"preds_mean"],type="l",axes=FALSE,xlab=feature,ylab="",lwd="3",col="dark green",ylim=c(min(MinActuals,MinPreds)-0.2*MeanActuals,max(MaxActuals,MaxPreds)+0.2*MeanActuals)
-        ,col.axis="white",col.lab="white",col.main="white"
-      )
-      axis(side=4,col="grey")
-      points(data_summarised[,"preds_mean"],col="dark green",pch=18,col.axis="white",col.lab="white",col.main="white")
-      points(data_summarised[,"actuals_mean"],type="l",col="violet",lwd=3,col.axis="white",col.lab="white",col.main="white")
-      points(data_summarised[,"actuals_mean"],col="violet",pch=20,col.axis="white",col.lab="white",col.main="white")
-      box(col="white")
-      axis(1,col="white")
-      axis(2,col="white")
-      axis(4,col="white")
+  return(p)
 
 }
-#
+
+
 #
 # test <- cbind.data.frame(
 #   Obs = c(0,3,2,2)
@@ -123,7 +169,7 @@ plot_actual_vs_predicted <- function(data,actual,prediction,weight,feature){
 #   ,Feat = c(1,1,2,3)
 # )
 #
-# plot_actual_vs_predicted(
+# plotly_actual_vs_predicted(
 #   data = test
 #   ,actual = "Obs"
 #   ,prediction = "Pred"
